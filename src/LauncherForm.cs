@@ -43,7 +43,7 @@ namespace GhostHunterLauncher
             BackColor = Theme.Background;
             ForeColor = Theme.Text;
             Font = new Font("Segoe UI", 9.5f);
-            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
+            if (Resources.AppIcon != null) Icon = Resources.AppIcon;
 
             header.SetBounds(0, 0, 900, 120);
 
@@ -90,6 +90,7 @@ namespace GhostHunterLauncher
 
             bottomBar.Controls.AddRange(new Control[] { statusLabel, progressBar, versionLabel, actionButton });
             Controls.AddRange(new Control[] { header, notesTitle, notesFrame, openFolderLink, repairLink, refreshLink, bottomBar });
+            ActiveControl = actionButton; // otherwise the notes box takes focus and selects all its text
             ResumeLayout(false);
             PerformLayout();
         }
@@ -99,6 +100,15 @@ namespace GhostHunterLauncher
             base.OnShown(e);
             Installer.EnsureRoot();
             Installer.CleanupLeftovers();
+            versionLabel.Text = "Launcher v" + LauncherUpdater.CurrentVersion;
+
+            SetMode(Mode.Busy, "Checking for launcher updates…");
+            await LauncherUpdater.CleanupAsync();
+            if (await LauncherUpdater.TryUpdateAsync(status => statusLabel.Text = status))
+            {
+                Close(); // the new launcher is already starting
+                return;
+            }
             await CheckForUpdatesAsync();
         }
 
@@ -106,7 +116,7 @@ namespace GhostHunterLauncher
         {
             SetMode(Mode.Busy, "Checking for updates…");
             string error = null;
-            try { latest = await GitHubReleases.GetLatestAsync(); }
+            try { latest = await GitHubReleases.GetLatestGameAsync(); }
             catch (LauncherException ex) { latest = null; error = ex.Message; }
             catch (Exception ex) { latest = null; error = "Update check failed: " + ex.Message; }
 
@@ -120,7 +130,7 @@ namespace GhostHunterLauncher
                     SetMode(Mode.Play, error != null ? "Couldn't check for updates — you can still play." : "No builds published yet.", error != null);
                 else
                     SetMode(Mode.Retry, error ?? "No builds have been published yet. Check back soon!", error != null);
-                if (error != null) notesBox.Text = error;
+                if (error != null) { notesBox.Text = error; notesBox.Select(0, 0); }
                 return;
             }
 
@@ -292,6 +302,7 @@ namespace GhostHunterLauncher
         {
             var text = "Installed: " + (installed ?? "none");
             if (latest != null) text += "    Latest: " + latest.Tag;
+            text += "    Launcher v" + LauncherUpdater.CurrentVersion;
             versionLabel.Text = text;
         }
 
@@ -307,7 +318,7 @@ namespace GhostHunterLauncher
             if (release.PublishedAt != DateTime.MinValue) title += "  ·  " + release.PublishedAt.ToLocalTime().ToString("MMM d, yyyy");
             notesTitle.Text = title;
             notesBox.Text = string.IsNullOrWhiteSpace(release.Notes) ? "No notes for this build." : CleanMarkdown(release.Notes);
-            notesBox.SelectionStart = 0;
+            notesBox.Select(0, 0);
         }
 
         /// <summary>Release notes are GitHub markdown; strip the syntax so they read well as plain text.</summary>

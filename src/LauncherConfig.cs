@@ -19,6 +19,12 @@ namespace GhostHunterLauncher
         // Early access builds are usually marked "pre-release" on GitHub; count them as updates.
         public const bool IncludePrereleases = true;
 
+        // Public repo whose Releases hold new launcher builds (see tools/publish-launcher.ps1).
+        // Tags are the launcher version (v1.0.1); the launcher replaces itself when a newer one is out.
+        public const string LauncherRepoOwner = "llallenll";
+        public const string LauncherRepoName = "Ghost-Hunter-Launcher";
+        public const string LauncherAssetName = "GhostHunterLauncher.exe";
+
         public const string Title = "GHOST HUNTER";
         public const string Subtitle = "EARLY ACCESS";
 

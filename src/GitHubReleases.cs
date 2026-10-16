@@ -48,10 +48,25 @@ namespace GhostHunterLauncher
             Http.DefaultRequestHeaders.UserAgent.ParseAdd("GhostHunterLauncher/1.0");
         }
 
-        public static async Task<ReleaseInfo> GetLatestAsync()
+        /// <summary>Newest game build.</summary>
+        public static Task<ReleaseInfo> GetLatestGameAsync()
         {
-            var url = string.Format("https://api.github.com/repos/{0}/{1}/releases?per_page=20",
-                LauncherConfig.RepoOwner, LauncherConfig.RepoName);
+            return GetLatestAsync(LauncherConfig.RepoOwner, LauncherConfig.RepoName, LauncherConfig.AssetName,
+                LauncherConfig.IncludePrereleases, ".zip");
+        }
+
+        /// <summary>Newest launcher build (full releases only).</summary>
+        public static Task<ReleaseInfo> GetLatestLauncherAsync()
+        {
+            return GetLatestAsync(LauncherConfig.LauncherRepoOwner, LauncherConfig.LauncherRepoName,
+                LauncherConfig.LauncherAssetName, false, null);
+        }
+
+        /// <param name="fallbackExtension">Accept any asset with this extension when none is named <paramref name="assetName"/>; null for exact name only.</param>
+        static async Task<ReleaseInfo> GetLatestAsync(string owner, string repo, string assetName,
+            bool includePrereleases, string fallbackExtension)
+        {
+            var url = string.Format("https://api.github.com/repos/{0}/{1}/releases?per_page=20", owner, repo);
 
             using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
             using (var request = new HttpRequestMessage(HttpMethod.Get, url))
@@ -90,9 +105,9 @@ namespace GhostHunterLauncher
                         var release = item as Dictionary<string, object>;
                         if (release == null || GetBool(release, "draft")) continue;
                         var prerelease = GetBool(release, "prerelease");
-                        if (prerelease && !LauncherConfig.IncludePrereleases) continue;
+                        if (prerelease && !includePrereleases) continue;
 
-                        var asset = PickAsset(release);
+                        var asset = PickAsset(release, assetName, fallbackExtension);
                         if (asset == null) continue;
 
                         var digest = GetString(asset, "digest");
@@ -117,21 +132,22 @@ namespace GhostHunterLauncher
             }
         }
 
-        static Dictionary<string, object> PickAsset(Dictionary<string, object> release)
+        static Dictionary<string, object> PickAsset(Dictionary<string, object> release, string assetName, string fallbackExtension)
         {
             var assets = release.ContainsKey("assets") ? release["assets"] as object[] : null;
             if (assets == null) return null;
 
-            Dictionary<string, object> anyZip = null;
+            Dictionary<string, object> fallback = null;
             foreach (var item in assets)
             {
                 var asset = item as Dictionary<string, object>;
                 if (asset == null) continue;
                 var name = GetString(asset, "name") ?? "";
-                if (string.Equals(name, LauncherConfig.AssetName, StringComparison.OrdinalIgnoreCase)) return asset;
-                if (anyZip == null && name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) anyZip = asset;
+                if (string.Equals(name, assetName, StringComparison.OrdinalIgnoreCase)) return asset;
+                if (fallback == null && fallbackExtension != null && name.EndsWith(fallbackExtension, StringComparison.OrdinalIgnoreCase))
+                    fallback = asset;
             }
-            return anyZip;
+            return fallback;
         }
 
         /// <summary>Streams the release zip to <paramref name="destination"/>, verifying its SHA-256 when GitHub provides one.</summary>

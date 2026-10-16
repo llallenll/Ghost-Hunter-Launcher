@@ -7,16 +7,18 @@ namespace GhostHunterLauncher
 {
     static class Theme
     {
-        public static readonly Color Background = Color.FromArgb(12, 13, 18);
-        public static readonly Color Panel = Color.FromArgb(22, 24, 32);
-        public static readonly Color Border = Color.FromArgb(40, 44, 58);
-        public static readonly Color Text = Color.FromArgb(226, 230, 238);
-        public static readonly Color Muted = Color.FromArgb(132, 140, 160);
-        public static readonly Color Accent = Color.FromArgb(150, 232, 200);
-        public static readonly Color AccentHover = Color.FromArgb(182, 244, 220);
-        public static readonly Color AccentText = Color.FromArgb(10, 22, 18);
-        public static readonly Color Error = Color.FromArgb(255, 128, 128);
-        public static readonly Color HeaderTop = Color.FromArgb(34, 24, 54);
+        // Taken from the logo: navy backdrop, teal hexagon, orange rim.
+        public static readonly Color Background = Color.FromArgb(13, 21, 32);
+        public static readonly Color Panel = Color.FromArgb(20, 32, 47);
+        public static readonly Color Border = Color.FromArgb(38, 56, 76);
+        public static readonly Color Text = Color.FromArgb(229, 229, 225);
+        public static readonly Color Muted = Color.FromArgb(128, 148, 166);
+        public static readonly Color Accent = Color.FromArgb(255, 194, 92);
+        public static readonly Color AccentHover = Color.FromArgb(255, 212, 138);
+        public static readonly Color AccentText = Color.FromArgb(20, 32, 47);
+        public static readonly Color Teal = Color.FromArgb(61, 163, 168);
+        public static readonly Color Error = Color.FromArgb(255, 128, 118);
+        public static readonly Color HeaderTop = Color.FromArgb(22, 58, 72);
 
         public static GraphicsPath Rounded(Rectangle r, int radius)
         {
@@ -99,9 +101,11 @@ namespace GhostHunterLauncher
         }
     }
 
-    /// <summary>Painted header with the game title over a dusky gradient.</summary>
+    /// <summary>Painted header: logo and game title over a gradient.</summary>
     class HeaderPanel : Panel
     {
+        readonly Image logo = Resources.Logo;
+
         public HeaderPanel()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
@@ -115,13 +119,40 @@ namespace GhostHunterLauncher
                 g.FillRectangle(brush, ClientRectangle);
 
             var scale = DeviceDpi / 96f;
+            var x = (int)(32 * scale);
+            if (logo != null)
+            {
+                var size = (int)(88 * scale);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.DrawImage(logo, new Rectangle(x - (int)(6 * scale), (Height - size) / 2, size, size));
+                x += size + (int)(10 * scale);
+            }
             using (var titleFont = new Font("Segoe UI Black", 30f, FontStyle.Regular))
             using (var subFont = new Font("Segoe UI Semibold", 10f, FontStyle.Regular))
             {
-                var x = (int)(32 * scale);
                 TextRenderer.DrawText(g, LauncherConfig.Title, titleFont, new Point(x - (int)(4 * scale), (int)(22 * scale)), Theme.Text);
                 TextRenderer.DrawText(g, LauncherConfig.Subtitle, subFont, new Point(x, (int)(80 * scale)), Theme.Accent);
             }
+        }
+    }
+
+    /// <summary>Images compiled into the exe by build.ps1 (/resource).</summary>
+    static class Resources
+    {
+        public static readonly Image Logo = LoadImage("GhostHunterLauncher.logo.png");
+        public static readonly Icon AppIcon = LoadIcon("GhostHunterLauncher.icon.ico");
+
+        static Image LoadImage(string name)
+        {
+            var stream = typeof(Resources).Assembly.GetManifestResourceStream(name);
+            return stream == null ? null : Image.FromStream(stream);
+        }
+
+        static Icon LoadIcon(string name)
+        {
+            using (var stream = typeof(Resources).Assembly.GetManifestResourceStream(name))
+                return stream == null ? null : new Icon(stream);
         }
     }
 

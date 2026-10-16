@@ -1,0 +1,38 @@
+<#
+.SYNOPSIS
+  Builds the launcher and its installer, then publishes them as a GitHub release.
+  Installed launchers see the new version on their next start and update themselves.
+
+.EXAMPLE
+  # Bump the version in src\AssemblyInfo.cs first, then:
+  .\tools\publish-launcher.ps1 -Notes "Shows download speed"
+#>
+param(
+    [string] $Notes,
+    [string] $Repo = 'llallenll/Ghost-Hunter-Launcher'
+)
+$ErrorActionPreference = 'Stop'
+$root = Split-Path $PSScriptRoot -Parent
+
+$gh = Get-Command gh -ErrorAction SilentlyContinue
+$gh = if ($gh) { $gh.Source } elseif (Test-Path 'C:\Program Files\GitHub CLI\gh.exe') { 'C:\Program Files\GitHub CLI\gh.exe' }
+if (-not $gh) { throw "GitHub CLI not found. Run: winget install GitHub.cli ; gh auth login" }
+
+$info = Get-Content (Join-Path $root 'src\AssemblyInfo.cs') -Raw
+$version = [regex]::Match($info, 'AssemblyVersion\("(\d+)\.(\d+)\.(\d+)').Groups[1..3].Value -join '.'
+if (-not $version) { throw "Couldn't read AssemblyVersion from src\AssemblyInfo.cs" }
+$tag = "v$version"
+
+& $gh release view $tag --repo $Repo *> $null
+if ($LASTEXITCODE -eq 0) { throw "$tag is already published. Bump AssemblyVersion in src\AssemblyInfo.cs first." }
+
+& (Join-Path $root 'build.ps1')
+$exe = Join-Path $root 'bin\GhostHunterLauncher.exe'
+$setup = Join-Path $root 'bin\GhostHunterLauncherSetup.exe'
+if (-not (Test-Path $setup)) { throw "Installer wasn't built. Install Inno Setup: winget install JRSoftware.InnoSetup" }
+
+if (-not $Notes) { $Notes = "Ghost Hunter Launcher $tag" }
+Write-Host "Publishing launcher $tag to $Repo..."
+& $gh release create $tag $exe $setup --repo $Repo --title "Launcher $tag" --notes $Notes --target main
+if ($LASTEXITCODE -ne 0) { throw "gh release create failed." }
+Write-Host "Done. Installer link: https://github.com/$Repo/releases/latest/download/GhostHunterLauncherSetup.exe"
