@@ -23,8 +23,12 @@ $version = [regex]::Match($info, 'AssemblyVersion\("(\d+)\.(\d+)\.(\d+)').Groups
 if (-not $version) { throw "Couldn't read AssemblyVersion from src\AssemblyInfo.cs" }
 $tag = "v$version"
 
-& $gh release view $tag --repo $Repo *> $null
-if ($LASTEXITCODE -eq 0) { throw "$tag is already published. Bump AssemblyVersion in src\AssemblyInfo.cs first." }
+# Windows PowerShell turns a native command's stderr into an error under 'Stop', so relax it for this probe.
+$ErrorActionPreference = 'Continue'
+& $gh release view $tag --repo $Repo 2>$null | Out-Null
+$exists = $LASTEXITCODE -eq 0
+$ErrorActionPreference = 'Stop'
+if ($exists) { throw "$tag is already published. Bump AssemblyVersion in src\AssemblyInfo.cs first." }
 
 & (Join-Path $root 'build.ps1')
 $exe = Join-Path $root 'bin\GhostHunterLauncher.exe'
