@@ -22,4 +22,10 @@ Hand testers `bin\GhostHunterLauncher.exe`. Drop an `icon.ico` next to `build.ps
 
 ## Publishing game builds
 
-The game repo has `Tools/publish-release.ps1` and the **Ghost Hunter > Build Windows Release** menu item. Together they build the game, zip it and create the GitHub release.
+`tools/publish-release.ps1` builds the game, zips it and creates the GitHub release:
+
+```powershell
+.\tools\publish-release.ps1 -Version 0.2.0 -NotesFile notes.md
+```
+
+Unity has to be closed for this. The script copies `unity/ReleaseBuilder.cs` into the game project (`-ProjectPath`, default `D:\Unity\Ghost Hunter`) for the build only, then removes it. If Unity is open, build the Windows player into `<project>\Builds\Windows` yourself and pass `-SkipBuild`. It needs the GitHub CLI: `winget install GitHub.cli`, then `gh auth login`.
